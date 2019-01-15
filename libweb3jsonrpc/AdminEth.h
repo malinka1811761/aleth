@@ -1,5 +1,7 @@
 #pragma once
 #include "AdminEthFace.h"
+#include <libethcore/Common.h>
+#include <functional>
 
 namespace dev
 {

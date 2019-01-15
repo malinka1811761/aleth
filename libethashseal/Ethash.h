@@ -20,9 +20,10 @@
 
 #pragma once
 
-#include <libethcore/SealEngine.h>
-#include <libethereum/GenericFarm.h>
 #include "EthashProofOfWork.h"
+#include <libethcore/SealEngine.h>
+#include <libethereum/Client.h>
+#include <libethereum/GenericFarm.h>
 
 #include <ethash/ethash.hpp>
 
@@ -63,8 +64,8 @@ public:
     void cancelGeneration() override { m_farm.stop(); }
     void generateSeal(BlockHeader const& _bi) override;
     bool shouldSeal(Interface* _i) override;
-
-    eth::GenericFarm<EthashProofOfWork>& farm() { return m_farm; }
+    std::tuple<h256, h256, h256> getWork(BlockHeader const& _bi) override;
+    bool isMining() const override;
 
     static h256 seedHash(BlockHeader const& _bi);
     static Nonce nonce(BlockHeader const& _bi) { return _bi.seal<Nonce>(NonceField); }
@@ -84,6 +85,24 @@ public:
 
     static void init();
 
+    /// The hashrate...
+    u256 hashrate() const;
+
+    /// Check the progress of the mining.
+    WorkingProgress miningProgress() const;
+
+    /// Update to the latest transactions and get hash of the current block to be mined minus the
+    /// nonce (the 'work hash') and the difficulty to be met.
+    /// @returns Tuple of hash without seal, seed hash, target boundary.
+    std::tuple<h256, h256, h256> getEthashWork(Client const& _client);
+
+    /// @brief Submit the proof for the proof-of-work.
+    /// @param _s A valid solution.
+    /// @return true if the solution was indeed valid and accepted.
+    bool submitEthashWork(h256 const& _mixHash, h64 const& _nonce);
+
+    void submitExternalHashrate(u256 const& _rate, h256 const& _id);
+
 private:
     bool verifySeal(BlockHeader const& _blockHeader) const;
     bool quickVerifySeal(BlockHeader const& _blockHeader) const;
@@ -94,7 +113,15 @@ private:
 
     /// A mutex covering m_sealing
     Mutex m_submitLock;
+    u256 externalHashrate() const;
+
+    // external hashrate
+    mutable std::unordered_map<h256, std::pair<u256, std::chrono::steady_clock::time_point>>
+        m_externalRates;
+    mutable SharedMutex x_externalRates;
 };
 
+DEV_SIMPLE_EXCEPTION(InvalidSealEngine);
+Ethash& asEthash(SealEngineFace& _f);
 }
 }

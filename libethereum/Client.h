@@ -228,6 +228,11 @@ public:
         return m_onChainChanged.add(_handler);
     }
 
+    ///< Is there an active and valid remote worker?
+    bool remoteActive() const;
+
+    ///< Get POW depending on sealengine it's using
+    std::tuple<h256, h256, h256> getWork();
 
 protected:
     /// Perform critical setup functions.
@@ -321,6 +326,13 @@ protected:
     /// Executes the pending functions in m_functionQueue
     void callQueuedFunctions();
 
+    /// @returns true only if it's worth bothering to prep the mining block.
+    bool shouldServeWork() const
+    {
+        return blockQueue().items().first == 0 && (sealEngine()->isMining() || remoteActive());
+    }
+
+
     BlockChain m_bc;                        ///< Maintains block database and owns the seal engine.
     BlockQueue m_bq;                        ///< Maintains a list of incoming blocks not yet on the blockchain (to be imported).
     TransactionQueue m_tq;                  ///< Maintains a list of incoming transactions not yet in a block on the blockchain.
@@ -335,7 +347,6 @@ protected:
     mutable SharedMutex x_working;          ///< Lock on m_working.
     Block m_working;                        ///< The state of the client which we're sealing (i.e. it'll have all the rewards added), while we're actually working on it.
     BlockHeader m_sealingInfo;              ///< The header we're attempting to seal on (derived from m_postSeal).
-    bool remoteActive() const;              ///< Is there an active and valid remote worker?
     std::atomic<bool> m_remoteWorking = { false };          ///< Has the remote worker recently been reset?
     std::atomic<bool> m_needStateReset = { false };         ///< Need reset working state to premin on next sync
     std::chrono::system_clock::time_point m_lastGetWork;    ///< Is there an active and valid remote worker?
