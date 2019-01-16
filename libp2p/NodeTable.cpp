@@ -90,6 +90,19 @@ void NodeTable::processEvents()
 
 bool NodeTable::addNode(Node const& _node, NodeRelation _relation)
 {
+    if (!_node.endpoint || !_node.id)
+    {
+        LOG(m_logger) << "Supplied node has an invalid endpoint (" << _node.endpoint << ") or id ("
+                      << _node.id << "). Skipping adding to node table.";
+        return false;
+    }
+
+    if (m_hostNodeID == _node.id)
+    {
+        LOG(m_logger) << "Skip adding self to node table (" << _node.id << ")";
+        return false;
+    }
+
     // TODO: Make private version of addNode() that could return reference to added node.
     if (_relation == Known)
     {
@@ -99,37 +112,29 @@ bool NodeTable::addNode(Node const& _node, NodeRelation _relation)
         nodeEntry->lastPongReceivedTime = RLPXDatagramFace::secondsSinceEpoch();
         DEV_GUARDED(x_nodes) { m_allNodes[_node.id] = nodeEntry; }
         noteActiveNode(_node.id, _node.endpoint);
-        return true;
     }
 
-    if (!_node.endpoint || !_node.id)
-    {
-        LOG(m_logger) << "Supplied node has an invalid endpoint (" << _node.endpoint << ") or id ("
-                      << _node.id << "). Skipping adding to node table.";
-        return false;
-    }
-
+    bool bFound = false;
+    shared_ptr<NodeEntry> newNodeEntry = nullptr;
     DEV_GUARDED(x_nodes)
     {
         auto const it = m_allNodes.find(_node.id);
         if (it != m_allNodes.end())
-        {
-            LOG(m_logger) << "Node " << _node.id << "@" << _node.endpoint
-                          << " is already in the node table";
-            return true;
-        }
+            bFound = true;
+        else
+            m_allNodes[_node.id] = make_shared<NodeEntry>(m_hostNodeID, _node.id, _node.endpoint);
+        newNodeEntry = m_allNodes[_node.id];
     }
 
-    if (m_hostNodeID == _node.id)
-    {
-        LOG(m_logger) << "Skip adding self to node table (" << _node.id << ")";
-        return false;
-    }
+    if (bFound)
+        LOG(m_logger) << "Node " << _node.id << "@" << _node.endpoint
+                      << " is already in the node table";
+    else
+        LOG(m_logger) << "Pending node " << _node.id << "@" << _node.endpoint;
 
-    auto nodeEntry = make_shared<NodeEntry>(m_hostNodeID, _node.id, _node.endpoint);
-    DEV_GUARDED(x_nodes) { m_allNodes[_node.id] = nodeEntry; }
-    LOG(m_logger) << "Pending node " << _node.id << "@" << _node.endpoint;
-    ping(*nodeEntry);
+    if (!newNodeEntry->hasValidEndpointProof())
+        ping(*newNodeEntry);
+
     return true;
 }
 
