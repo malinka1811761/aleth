@@ -133,7 +133,7 @@ jobs:
       GENERATOR: Ninja
       BUILD_PARALLEL_JOBS: 8
       TEST_PARALLEL_JOBS: 8
-      CMAKE_OPTIONS: -DALETH_INTERPRETER_SHARED=ON
+      CMAKE_OPTIONS: -DALETH_INTERPRETER_SHARED=ON -DTESTETH_ARGS="--verbosity 4"
     docker:
       - image: ethereum/cpp-build-env:7
     steps:
@@ -185,7 +185,7 @@ jobs:
     <<: *linux-gcc6
     environment:
       <<: *linux-gcc6-environment
-      CMAKE_OPTIONS: -DCOVERAGE=ON -DTESTETH_ARGS=--all
+      CMAKE_OPTIONS: -DCOVERAGE=ON -DTESTETH_ARGS="--all --verbosity 4"
 
   macos-xcode90:
     environment:
